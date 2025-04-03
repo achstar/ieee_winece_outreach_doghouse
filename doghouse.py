@@ -43,7 +43,7 @@ def play_music():
 
 def move_motor():
     global in1, in2
-
+    p.ChangeDutyCycle(25)
     for i in range (4):
         print("run")
         print("forward")

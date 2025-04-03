@@ -1,30 +1,22 @@
 import pygame
 import time
-from gpiozero import Button
 from signal import pause
 import RPi.GPIO as GPIO
 import threading
-
-MOTOR_TIMEOUT = 10.0
-
-def timer_callback():
-    """ Timer callback to stop the motor after a time delay. """
-    global motor_timer
-    motor_moving = False
-    stop_motor()
+from gpiozero import Button
 
 ############ GLOBAL VARIABLES ############
-play_music = False
-motor_moving = False
-motor_timer = threading.Timer(MOTOR_TIMEOUT, timer_callback)
+playing = False
 
 in1 = 24
 in2 = 23
 en = 25
+button = 5
 ##########################################
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(button, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
 # motor init (for some reason doesn't work if it's put in a separate func)
-GPIO.setmode(GPIO.BCM)
 GPIO.setup(in1,GPIO.OUT)
 GPIO.setup(in2,GPIO.OUT)
 GPIO.setup(en,GPIO.OUT)
@@ -44,29 +36,38 @@ def init_mixer():
     pygame.mixer.init()
     pygame.mixer.music.load("iliketomoveit.wav")
     print(f"Mixer initialized and music loaded")
+
+def play_music():
     pygame.mixer.music.play()
-    pygame.mixer.music.pause()
-    print(f"Music played and paused. Ready for button press!")
+    print("Music playing.")
 
-def change_music_state():
-    """ Play music if music is paused. Pause music if music is playing. """
-    global play_music
-
-    if pygame.mixer.music.get_busy():
-        pygame.mixer.music.pause()
-        print("Music paused.")
-        play_music = False
-    else:
-        pygame.mixer.music.unpause()
-        print("Music playing.")
-        play_music = True
-
-def run_motor():
+def move_motor():
     global in1, in2
-    print("run")
+
+    for i in range (4):
+        print("run")
+        print("forward")
+        GPIO.output(in1,GPIO.HIGH)
+        GPIO.output(in2,GPIO.LOW)
+        
+        time.sleep(1)
+
+        print("backward")
+        GPIO.output(in1,GPIO.LOW)
+        GPIO.output(in2,GPIO.HIGH)
+
+        time.sleep(1)
+
+    print("forward")
     GPIO.output(in1,GPIO.HIGH)
     GPIO.output(in2,GPIO.LOW)
-    print("forward")
+    p.ChangeDutyCycle(50)
+
+    time.sleep(4)
+
+    print("stop")
+    GPIO.output(in1,GPIO.LOW)
+    GPIO.output(in2,GPIO.LOW)
 
 def stop_motor():
     global in1, in2
@@ -74,42 +75,48 @@ def stop_motor():
     GPIO.output(in1,GPIO.LOW)
     GPIO.output(in2,GPIO.LOW)
 
-def change_motor_state():
-    """ Stop motor if motor is moving, run motor if motor is stopped. """
-    global motor_moving, motor_timer
+# def button_pressed():
+#     """ Button callback. """
+#     global playing
 
-    if motor_moving:
-        motor_moving = False
-        stop_motor()
-    else:
-        motor_moving = True
-        if motor_timer.is_alive():
-            motor_timer.cancel()
-            motor_timer.join()
-        
-        motor_timer = threading.Timer(MOTOR_TIMEOUT, timer_callback)
-        motor_timer.start()
-        run_motor()
-        
+#     print("Button pressed!")
+#     print(f"playing: {playing}")
 
-def button_pressed():
-    """ Button callback. """
-    print("Button pressed!")
-    change_music_state()
-    change_motor_state()
+#     if playing:
+#         print("Button pressed, but function is currently running. Ignoring.")
+#     else:
+#         print("Button pressed, executing function...")
+#         playing = True
+#         play_music()
+#         move_motor()
+#         while pygame.mixer.music.get_busy():
+
+            
+#         playing = False
     
 if __name__ == "__main__":
     init_mixer()
 
-    button = Button(5, bounce_time=0.1)
-    button.when_pressed = button_pressed
+    # button = Button(5, bounce_time=0.1)
+    # button.when_pressed = button_pressed
+
+    while True: # Run forever
+        if GPIO.input(button) == GPIO.HIGH:
+            print("Button was pushed!")
+            music_thread = threading.Thread(target=play_music)
+            motor_thread = threading.Thread(target=move_motor)
+            music_thread.start()
+            motor_thread.start()
+            time.sleep(13)
+            music_thread.join()
+            motor_thread.join()
 
     try:
         pause()  # Keeps the script running
     except KeyboardInterrupt:
         print("\nExiting gracefully...")
+        music_thread.join()
+        motor_thread.join()
         pygame.mixer.music.stop()
         stop_motor()
-        motor_timer.cancel()
-        motor_timer.join()
         GPIO.cleanup()

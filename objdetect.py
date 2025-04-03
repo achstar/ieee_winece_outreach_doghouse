@@ -1,8 +1,9 @@
 import cv2
 import numpy as np
+import doghouse
 
 # Load YOLO model
-net = cv2.dnn.readNet("yolov4.weights", "yolov4.cfg")
+net = cv2.dnn.readNet("yolov4-tiny.weights", "yolov4-tiny.cfg")
 
 # Load COCO class labels
 with open("coco.names", "r") as f:
@@ -14,6 +15,8 @@ output_layers = [layer_names[i - 1] for i in net.getUnconnectedOutLayers()]
 
 # Open camera (0 for built-in webcam, 1 for external USB camera)
 cap = cv2.VideoCapture(0)  
+person_detected = False
+person_coords = 
 
 while cap.isOpened():
     ret, frame = cap.read()
@@ -34,6 +37,7 @@ while cap.isOpened():
             confidence = scores[class_id]
 
             if confidence > 0.5 and classes[class_id] == "person":  # Detect people only
+                person_
                 center_x, center_y, w, h = map(int, detection[:4] * [width, height, width, height])
                 x = int(center_x - w / 2)
                 y = int(center_y - h / 2)
